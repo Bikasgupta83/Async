@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Async Patterns</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .card {
+            background-color: white;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        input {
+            padding: 10px;
+            width: 250px;
+        }
+
+        #output {
+            background-color: #222;
+            color: #00ff00;
+            padding: 15px;
+            min-height: 100px;
+            margin-top: 20px;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>JavaScript Async Patterns</h1>
+
+        <!-- Debouncing -->
+        <div class="card">
+            <h2>1. Debouncing</h2>
+
+            <p>
+                Wait until the user stops typing before executing.
+            </p>
+
+            <input type="text" id="searchInput" placeholder="Type something...">
+        </div>
+
+
+        <!-- Throttling -->
+        <div class="card">
+
+            <h2>2. Throttling</h2>
+
+            <p>
+                Execute a function at most once within a specific time.
+            </p>
+
+            <button id="scrollButton">
+                Simulate Scroll
+            </button>
+
+        </div>
+
+
+        <!-- Concurrency -->
+        <div class="card">
+
+            <h2>3. Concurrency Control</h2>
+
+            <p>
+                Run only a limited number of async tasks simultaneously.
+            </p>
+
+            <button onclick="startConcurrency()">
+                Run 10 Tasks (Limit 3)
+            </button>
+
+        </div>
+
+
+        <!-- Retry -->
+        <div class="card">
+
+            <h2>4. Retry Logic</h2>
+
+            <p>
+                Retry an operation when it fails.
+            </p>
+
+            <button onclick="startRetry()">
+                Start Retry
+            </button>
+
+        </div>
+
+
+        <!-- Timeout -->
+        <div class="card">
+
+            <h2>5. Timeout Pattern</h2>
+
+            <p>
+                Stop waiting if an operation takes too long.
+            </p>
+
+            <button onclick="startTimeout()">
+                Start Request
+            </button>
+
+        </div>
+
+
+        <!-- Sequential -->
+        <div class="card">
+
+            <h2>6. Sequential Execution</h2>
+
+            <p>
+                Execute async tasks one after another.
+            </p>
+
+            <button onclick="startSequential()">
+                Run Sequential Tasks
+            </button>
+
+        </div>
+
+
+        <!-- Parallel -->
+        <div class="card">
+
+            <h2>7. Parallel Execution</h2>
+
+            <p>
+                Execute independent async tasks together.
+            </p>
+
+            <button onclick="startParallel()">
+                Run Parallel Tasks
+            </button>
+
+        </div>
+
+
+        <h2>Output</h2>
+
+        <div id="output"></div>
+
+    </div>
+
+
+    <script>
+
+        const output = document.querySelector("#output");
+
+
+        function log(message) {
+            console.log(message);
+            output.textContent += message + "\n";
+        }
+
+
+        // ==================================================
+        // 1. DEBOUNCING
+        // ==================================================
+
+        let debounceTimer;
+
+        document
+            .querySelector("#searchInput")
+            .addEventListener("input", function () {
+
+                clearTimeout(debounceTimer);
+
+                debounceTimer = setTimeout(() => {
+
+                    log("Debounce: Searching for → " + this.value);
+
+                }, 500);
+
+            });
+
+
+        // ==================================================
+        // 2. THROTTLING
+        // ==================================================
+
+        function throttle(callback, delay) {
+
+            let lastTime = 0;
+
+            return function () {
+
+                const currentTime = Date.now();
+
+                if (currentTime - lastTime >= delay) {
+
+                    callback();
+
+                    lastTime = currentTime;
+                }
+            };
+        }
+
+
+        const throttledScroll = throttle(() => {
+
+            log("Throttle: Function executed");
+
+        }, 1000);
+
+
+        document
+            .querySelector("#scrollButton")
+            .addEventListener("click", throttledScroll);
+
+
+        // ==================================================
+        // Helper function
+        // ==================================================
+
+        function delay(ms) {
+
+            return new Promise(resolve => {
+                setTimeout(resolve, ms);
+            });
+
+        }
+
+
+        // ==================================================
+        // 3. CONCURRENCY CONTROL
+        // ==================================================
+
+        function createTask(id) {
+
+            return async function () {
+
+                log(`Task ${id} started`);
+
+                await delay(1000);
+
+                log(`Task ${id} completed`);
+
+            };
+
+        }
+
+
+        async function runTasks(tasks, limit) {
+
+            let index = 0;
+
+
+            async function worker() {
+
+                while (index < tasks.length) {
+
+                    const currentIndex = index++;
+
+                    await tasks[currentIndex]();
+
+                }
+
+            }
+
+
+            const workers = [];
+
+
+            for (let i = 0; i < limit; i++) {
+
+                workers.push(worker());
+
+            }
+
+
+            await Promise.all(workers);
+
+        }
+
+
+        async function startConcurrency() {
+
+            output.textContent = "";
+
+            const tasks = [];
+
+            for (let i = 1; i <= 10; i++) {
+
+                tasks.push(createTask(i));
+
+            }
+
+            log("Starting 10 tasks with concurrency limit = 3");
+
+            await runTasks(tasks, 3);
+
+            log("All tasks completed");
+
+        }
+
+
+        // ==================================================
+        // 4. RETRY LOGIC
+        // ==================================================
+
+        let attempt = 0;
+
+
+        async function fakeAPI() {
+
+            await delay(500);
+
+            attempt++;
+
+
+            if (attempt < 3) {
+
+                throw new Error("Temporary API error");
+
+            }
+
+
+            return "API request successful";
+
+        }
+
+
+        async function retry(fn, attempts) {
+
+            for (let i = 1; i <= attempts; i++) {
+
+                try {
+
+                    log(`Attempt ${i}`);
+
+                    const result = await fn();
+
+                    return result;
+
+                }
+
+                catch (error) {
+
+                    log("Request failed");
+
+                    if (i === attempts) {
+
+                        throw error;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+        async function startRetry() {
+
+            output.textContent = "";
+
+            attempt = 0;
+
+
+            try {
+
+                const result = await retry(fakeAPI, 5);
+
+                log(result);
+
+            }
+
+            catch (error) {
+
+                log("All retry attempts failed");
+
+            }
+
+        }
+
+
+        // ==================================================
+        // 5. TIMEOUT PATTERN
+        // ==================================================
+
+        function timeout(ms) {
+
+            return new Promise((_, reject) => {
+
+                setTimeout(() => {
+
+                    reject(new Error("Operation timed out"));
+
+                }, ms);
+
+            });
+
+        }
+
+
+        async function fakeSlowAPI() {
+
+            await delay(7000);
+
+            return "API response received";
+
+        }
+
+
+        async function startTimeout() {
+
+            output.textContent = "";
+
+            try {
+
+                const result = await Promise.race([
+
+                    fakeSlowAPI(),
+
+                    timeout(3000)
+
+                ]);
+
+
+                log(result);
+
+            }
+
+            catch (error) {
+
+                log(error.message);
+
+            }
+
+        }
+
+
+        // ==================================================
+        // 6. SEQUENTIAL EXECUTION
+        // ==================================================
+
+        async function sequentialTask(id) {
+
+            log(`Task ${id} started`);
+
+            await delay(1000);
+
+            log(`Task ${id} completed`);
+
+        }
+
+
+        async function startSequential() {
+
+            output.textContent = "";
+
+            log("Sequential execution started");
+
+
+            await sequentialTask(1);
+
+            await sequentialTask(2);
+
+            await sequentialTask(3);
+
+
+            log("All sequential tasks completed");
+
+        }
+
+
+        // ==================================================
+        // 7. PARALLEL EXECUTION
+        // ==================================================
+
+        async function parallelTask(id) {
+
+            log(`Task ${id} started`);
+
+            await delay(2000);
+
+            log(`Task ${id} completed`);
+
+            return `Result ${id}`;
+
+        }
+
+
+        async function startParallel() {
+
+            output.textContent = "";
+
+            log("Parallel execution started");
+
+
+            const results = await Promise.all([
+
+                parallelTask(1),
+
+                parallelTask(2),
+
+                parallelTask(3)
+
+            ]);
+
+
+            log("All parallel tasks completed");
+
+            console.log(results);
+
+        }
+
+    </script>
+
+</body>
+
+</html>
